@@ -23,7 +23,6 @@ api.interceptors.response.use(
         await api.post('/auth/refresh');
         return api(originalRequest);
       } catch (refreshError) {
-        // Clear auth state logic could go here or be handled by the context/component
         return Promise.reject(refreshError);
       }
     }
