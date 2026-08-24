@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getTasks, createTask, updateTask, deleteTask } from '../../api/tasks.api';
-import { Task } from '../../types/task';
+import { Task, TaskStatus } from '../../types/task';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,8 +17,11 @@ export default function TasksDashboard() {
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  
-  // Modal states
+
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
@@ -36,14 +39,15 @@ export default function TasksDashboard() {
     if (isAuthenticated) {
       fetchTasks();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, page, statusFilter]);
 
   const fetchTasks = async () => {
     setLoadingTasks(true);
     setError('');
     try {
-      const response = await getTasks();
-      setTasks(response.data);
+      const response = await getTasks(page, limit, statusFilter);
+      setTasks(response.data.data);
+      setTotalPages(response.data.totalPages);
     } catch (err: any) {
       setError('Unable to load your tasks. Please try again.');
     } finally {
@@ -67,14 +71,15 @@ export default function TasksDashboard() {
     setTaskToDelete(task);
   };
 
-  const handleModalSubmit = async (taskData: { title: string; description: string }) => {
+  const handleModalSubmit = async (taskData: { title: string; description: string; status?: TaskStatus }) => {
     setError('');
     setMessage('');
     try {
       if (modalMode === 'create') {
         const res = await createTask(taskData);
-        setTasks([...tasks, res.data]);
+        setTasks([res.data, ...tasks].slice(0, limit)); // Add new task to top, roughly maintain limit
         setMessage('Task created successfully.');
+        if (page !== 1) setPage(1); // Go to first page to see new task
       } else if (modalMode === 'edit' && currentTask) {
         const res = await updateTask(currentTask._id, taskData);
         setTasks(tasks.map(t => t._id === currentTask._id ? res.data : t));
@@ -120,7 +125,7 @@ export default function TasksDashboard() {
             <Link href="/settings" className="text-gray-500 hover:text-gray-900 font-medium transition-colors text-base">
               Settings
             </Link>
-            <button 
+            <button
               onClick={logout}
               className="bg-red-50 hover:bg-red-100 text-red-600 font-medium px-4 py-2 rounded-lg transition-colors text-base"
             >
@@ -131,14 +136,14 @@ export default function TasksDashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 pt-10">
-        
+
         {/* Action Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Your Tasks</h2>
             <p className="text-gray-500 mt-1">Manage and organize your day.</p>
           </div>
-          <button 
+          <button
             onClick={openCreateModal}
             className="group flex items-center gap-2 bg-[#63ba54] hover:bg-[#54a646] text-white px-6 py-3 rounded-full font-semibold transition-all shadow-sm hover:shadow-md active:scale-95"
           >
@@ -160,6 +165,24 @@ export default function TasksDashboard() {
           </div>
         )}
 
+        {/* Filters */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {['all', 'todo', 'inprogress', 'completed'].map((status) => (
+            <button
+              key={status}
+              onClick={() => { setStatusFilter(status); setPage(1); }}
+              className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${statusFilter === status
+                ? 'bg-gray-800 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+            >
+              {status === 'all' ? 'All Tasks' :
+                status === 'todo' ? 'To Do' :
+                  status === 'inprogress' ? 'In Progress' : 'Completed'}
+            </button>
+          ))}
+        </div>
+
         {/* Content Area */}
         {loadingTasks ? (
           <div className="flex flex-col items-center justify-center py-20">
@@ -174,7 +197,7 @@ export default function TasksDashboard() {
             </div>
             <h3 className="text-xl text-gray-900 font-bold mb-2">You're all caught up!</h3>
             <p className="text-gray-500 mb-8 max-w-sm">You have no pending tasks. Enjoy your day or create a new task to get started.</p>
-            <button 
+            <button
               onClick={openCreateModal}
               className="text-[#63ba54] font-bold border-2 border-[#63ba54]/20 rounded-full px-8 py-3 hover:bg-[#63ba54] hover:text-white transition-all hover:shadow-lg hover:shadow-[#63ba54]/20"
             >
@@ -185,19 +208,40 @@ export default function TasksDashboard() {
           /* Task Grid/List */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {tasks.map((task) => (
-              <TaskCard 
-                key={task._id} 
-                task={task} 
-                onEdit={openEditModal} 
-                onDelete={confirmDelete} 
+              <TaskCard
+                key={task._id}
+                task={task}
+                onEdit={openEditModal}
+                onDelete={confirmDelete}
               />
             ))}
           </div>
         )}
 
+        {/* Pagination Controls */}
+        {!loadingTasks && totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-12">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-4 py-2 rounded-lg font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-gray-600 font-medium">Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-4 py-2 rounded-lg font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
+
       </main>
 
-      <TaskModal 
+      <TaskModal
         isOpen={isModalOpen}
         mode={modalMode}
         initialTask={currentTask}
@@ -205,7 +249,7 @@ export default function TasksDashboard() {
         onSubmit={handleModalSubmit}
       />
 
-      <DeleteConfirmModal 
+      <DeleteConfirmModal
         task={taskToDelete}
         onClose={() => setTaskToDelete(null)}
         onConfirm={handleDelete}

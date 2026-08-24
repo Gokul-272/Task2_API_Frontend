@@ -12,7 +12,16 @@ export default function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
   return (
     <div className="group bg-white p-7 rounded-[1.5rem] shadow-sm border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all flex flex-col relative overflow-hidden">
       <div className="flex justify-between items-start mb-4">
-        <h3 className="font-bold text-gray-900 text-lg leading-tight pr-12">{task.title}</h3>
+        <div>
+          <h3 className="font-bold text-gray-900 text-lg leading-tight pr-12">{task.title}</h3>
+          <span className={`inline-block mt-2 px-2.5 py-1 text-xs font-semibold rounded-full ${
+            task.status === 'completed' ? 'bg-green-100 text-green-800' :
+            task.status === 'inprogress' ? 'bg-blue-100 text-blue-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            {task.status === 'completed' ? 'Completed' : task.status === 'inprogress' ? 'In Progress' : 'To Do'}
+          </span>
+        </div>
         <div className="flex items-center gap-1 absolute top-6 right-6">
           <button 
             onClick={() => onEdit(task)}

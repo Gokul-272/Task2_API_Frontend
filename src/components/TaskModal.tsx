@@ -6,18 +6,20 @@ interface TaskModalProps {
   mode: 'create' | 'edit';
   initialTask: Task | null;
   onClose: () => void;
-  onSubmit: (data: { title: string; description: string }) => Promise<void>;
+  onSubmit: (data: { title: string; description: string; status: 'todo' | 'inprogress' | 'completed' }) => Promise<void>;
 }
 
 export default function TaskModal({ isOpen, mode, initialTask, onClose, onSubmit }: TaskModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [status, setStatus] = useState<'todo' | 'inprogress' | 'completed'>('todo');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setTitle(initialTask?.title || '');
       setDescription(initialTask?.description || '');
+      setStatus(initialTask?.status || 'todo');
       setIsSubmitting(false);
     }
   }, [isOpen, initialTask]);
@@ -28,7 +30,7 @@ export default function TaskModal({ isOpen, mode, initialTask, onClose, onSubmit
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit({ title, description });
+      await onSubmit({ title, description, status });
       onClose();
     } catch (error) {
       // Error handled by parent or via toast
@@ -65,6 +67,19 @@ export default function TaskModal({ isOpen, mode, initialTask, onClose, onSubmit
               placeholder="Add details, notes, or steps..."
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700 ml-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as 'todo' | 'inprogress' | 'completed')}
+              className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 outline-none text-gray-800 focus:border-[#63ba54] focus:bg-white focus:ring-4 focus:ring-[#63ba54]/10 transition-all font-medium appearance-none"
+            >
+              <option value="todo">To Do</option>
+              <option value="inprogress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
           </div>
 
           <div className="flex gap-4 mt-4">

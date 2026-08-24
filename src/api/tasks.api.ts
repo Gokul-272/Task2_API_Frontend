@@ -1,7 +1,13 @@
 import api from './axios';
 import { CreateTaskData, UpdateTaskData } from '../types/task';
 
-export const getTasks = () => api.get('/tasks');
+export const getTasks = (page: number = 1, limit: number = 10, status: string = 'all') => {
+  let url = `/tasks?page=${page}&limit=${limit}`;
+  if (status !== 'all') {
+    url += `&status=${status}`;
+  }
+  return api.get(url);
+};
 
 export const getTask = (id: string) => api.get(`/tasks/${id}`);
 
